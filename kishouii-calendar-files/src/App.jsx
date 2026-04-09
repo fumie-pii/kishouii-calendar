@@ -42,16 +42,15 @@ function getSenro(honmei, jishi) {
 }
 
 // 天道方位（節月ベース・毎年同じ）
-// 節月1=寅月(2月節)、節月4=巳月(4月節)...
-// 月番号は節入り月で管理（1〜12）
 var TENTO_DIRECTION = {
   1:"西",2:"南",3:"南南西",4:"北",5:"西",6:"西北西",
   7:"東",8:"北",9:"北北東",10:"南",11:"東",12:"東南東"
 };
 
-// 節入り日テーブル（2026-2027）：{year-month: [start_month, start_day, end_month, end_day]}
-// 月番号は天道の月番号（1〜12）
+// 節入り日テーブル（2026-2027）
+// 4/1〜4/4は3月の月盤として扱う（天道：南南西）
 var SETSUNYU = [
+  {tentoMonth:3,  s:[2026,4,1],  e:[2026,4,4]},
   {tentoMonth:4,  s:[2026,4,5],  e:[2026,5,4]},
   {tentoMonth:5,  s:[2026,5,5],  e:[2026,6,5]},
   {tentoMonth:6,  s:[2026,6,6],  e:[2026,7,6]},
@@ -64,12 +63,20 @@ var SETSUNYU = [
   {tentoMonth:1,  s:[2027,1,5],  e:[2027,2,28]},
 ];
 
-// 節入り日（左側に太線を入れる）
+// 節入り日
 var SETSUNYU_DAYS = {
   "2026-4-5":true,"2026-5-5":true,"2026-6-6":true,"2026-7-7":true,
   "2026-8-7":true,"2026-9-7":true,"2026-10-8":true,"2026-11-7":true,
   "2026-12-7":true,"2027-1-5":true,
 };
+// 日盤切替日（赤ライン）
+var NICHIBAN_KIRIKAE = {
+  "2026-6-19":true,"2026-12-16":true,
+};
+function isNichibanKirikae(date) {
+  var key=date.getFullYear()+"-"+(date.getMonth()+1)+"-"+date.getDate();
+  return NICHIBAN_KIRIKAE[key]===true;
+}
 // 祝日テーブル
 var HOLIDAYS = {
   "2026-4-29":"昭和の日",
@@ -202,6 +209,7 @@ function getTentoDirection(date) {
 const CARDINAL4 = ["東","西","南","北"];
 const POSITIONS = ["top","topLeft","left","bottomLeft","bottom","bottomRight","right","topRight"];
 const KYUSEI = ["","一白水星","二黒土星","三碧木星","四緑木星","五黄土星","六白金星","七赤金星","八白土星","九紫火星"];
+
 // 本命×月命→最大吉方テーブル（ルールA変換後の月命星で引く）
 var MAX_KICHI_TABLE = {
   "1-2":[6,7],"1-3":[4],"1-4":[3],"1-5":[6,7],"1-6":[7],"1-7":[6],"1-8":[6,7],"1-9":[3,4],
@@ -215,12 +223,13 @@ var MAX_KICHI_TABLE = {
   "9-1":[3,4],"9-2":[8],"9-3":[4],"9-4":[3],"9-5":[2,8],"9-6":[2,8],"9-7":[2,8],"9-8":[2],
 };
 
-// ルールA：同星変換
+// ルールA：同星変換（最大吉方・吉方位の計算時のみ使用）
 var SAME_STAR_CONVERT = {
   1:9, 2:6, 3:4, 4:3, 6:2, 7:8, 8:7, 9:1,
 };
 // 五黄×五黄は性別で分岐（gender: "f"→6, "m"→7）
 
+// 最大吉方・吉方位の計算用：本命=月命の場合は転換する
 function getEffectiveTsukimei(honmei, tsukimei, gender) {
   if (honmei === tsukimei) {
     if (honmei === 5) {
@@ -239,18 +248,27 @@ function getMaxKichiStars(honmei, tsukimei, gender) {
 
 // 本命×月命→吉方位テーブル（ルールA変換後の月命星で引く）
 var KICHI_TABLE = {
-  '1-2':[3,4],'1-3':[6,7],'1-4':[6,7],'1-5':[3,4],'1-6':[3,4],'1-7':[3,4],'1-8':[3,4],'1-9':[6,7],
-  '2-1':[8,9],'2-3':[8,6,7],'2-4':[8,6,7],'2-5':[],'2-6':[9],'2-7':[9],'2-8':[],'2-9':[6,7],
-  '3-1':[9],'3-2':[4,1],'3-4':[],'3-5':[4,1],'3-6':[4,9],'3-7':[4,9],'3-8':[1,4],'3-9':[1],
-  '4-1':[9],'4-2':[1,3],'4-3':[],'4-5':[3,1],'4-6':[3,9],'4-7':[3,9],'4-8':[1,3],'4-9':[1],
+  '1-1':[6,7],'1-2':[3,4],'1-3':[6,7],'1-4':[6,7],'1-5':[3,4],'1-6':[3,4],'1-7':[3,4],'1-8':[3,4],'1-9':[6,7],
+  '2-1':[8,9],'2-2':[6,9],'2-3':[8,6,7],'2-4':[8,6,7],'2-5':[],'2-6':[9],'2-7':[9],'2-8':[],'2-9':[6,7],
+  '3-1':[9],'3-2':[4,1],'3-3':[4],'3-4':[],'3-5':[4,1],'3-6':[4,9],'3-7':[4,9],'3-8':[1,4],'3-9':[1],
+  '4-1':[9],'4-2':[1,3],'4-3':[],'4-4':[3],'4-5':[3,1],'4-6':[3,9],'4-7':[3,9],'4-8':[1,3],'4-9':[1],
   '5-1':[2,8,9],'5-2':[],'5-3':[2,8,6,7],'5-4':[2,8,6,7],'5-6':[9],'5-7':[9],'5-8':[],'5-9':[6,7],
-  '6-1':[2,8],'6-2':[1],'6-3':[7,2,8],'6-4':[7,2,8],'6-5':[1],'6-7':[],'6-8':[1],'6-9':[7,1],
-  '7-1':[2,8],'7-2':[1],'7-3':[6,2,8],'7-4':[6,2,8],'7-5':[1],'7-6':[],'7-8':[1],'7-9':[6,1],
-  '8-1':[2,9],'8-2':[],'8-3':[2,6,7],'8-4':[2,6,7],'8-5':[],'8-6':[9],'8-7':[9],'8-9':[6,7],
-  '9-1':[2,8],'9-2':[3,4],'9-3':[2,8],'9-4':[2,8],'9-5':[3,4],'9-6':[3,4],'9-7':[3,4],'9-8':[3,4],
+  '6-1':[2,8],'6-2':[1],'6-3':[7,2,8],'6-4':[7,2,8],'6-5':[1],'6-6':[1,2],'6-7':[],'6-8':[1],'6-9':[7,1],
+  '7-1':[2,8],'7-2':[1],'7-3':[6,2,8],'7-4':[6,2,8],'7-5':[1],'7-6':[],'7-7':[1,8],'7-8':[1],'7-9':[6,1],
+  '8-1':[2,9],'8-2':[],'8-3':[2,6,7],'8-4':[2,6,7],'8-5':[],'8-6':[9],'8-7':[9],'8-8':[7,9],'8-9':[6,7],
+  '9-1':[2,8],'9-2':[3,4],'9-3':[2,8],'9-4':[2,8],'9-5':[3,4],'9-6':[3,4],'9-7':[3,4],'9-8':[3,4],'9-9':[2,8],
 };
 
+// 相星（旧・吉方星）：同星の場合は転換せずそのまま引く
 function getKichiStars(honmei, tsukimei, gender) {
+  if (honmei === tsukimei) {
+    // 5-5のみ性別で分岐
+    if (honmei === 5) {
+      return gender === "f" ? [6,9] : [7,9];
+    }
+    var key = honmei + '-' + honmei;
+    return KICHI_TABLE[key] || [];
+  }
   var effTsuki = getEffectiveTsukimei(honmei, tsukimei, gender);
   var key = honmei + '-' + effTsuki;
   return KICHI_TABLE[key] || [];
@@ -321,7 +339,11 @@ function to8(dir) {
   return dir;
 }
 
-function calcDay(date, honmei, tsukimei, maxStars, kichiStars) {
+// ★修正点★
+// calcDay の引数に honmeiNum（本命星の数字）と rawTsukimei（月命星の生の数字）を追加
+// 凶方位計算では rawTsukimei をそのまま使う（本命=月命でも転換しない）
+// 吉方位計算では引数の honmei/tsukimei（転換済み）を使う
+function calcDay(date, honmei, tsukimei, maxStars, kichiStars, honmeiNum, rawTsukimei) {
   var c = getChuko(date);
   var board = {};
   for (var i=0;i<POSITIONS.length;i++) board[POSITIONS[i]]=((BASE_PAT[POSITIONS[i]]-5+c-1+9)%9)+1;
@@ -349,12 +371,26 @@ function calcDay(date, honmei, tsukimei, maxStars, kichiStars) {
     if (dt>=s&&dt<=e&&DOYOU_JISHI.indexOf(jishi)>=0){doyou16=DOYOU[i].d;break;}
   }
 
+  // ★凶方位計算用の星リストを決定★
+  // 本命=月命の場合：月命星は転換せずそのまま使う（本命殺=月命殺）
+  // 本命≠月命の場合：従来通り（引数の honmei/tsukimei をそのまま使う）
+  var kyouHonmei = [honmeiNum];
+  var kyouTsukimei;
+  if (honmeiNum === rawTsukimei) {
+    // 同星：月命星を転換せずに使う → 本命殺と月命殺は同じ方位
+    kyouTsukimei = [rawTsukimei];
+  } else {
+    // 異なる星：従来通り（引数で渡された tsukimei 配列を使う）
+    kyouTsukimei = tsukimei;
+  }
+
   // 60°凶：五黄殺・暗剣殺・本命殺・月命殺・的殺
   var kyou8 = {};
   if (gokou8){kyou8[gokou8]=true;if(OPP8[gokou8])kyou8[OPP8[gokou8]]=true;}
   for (var i=0;i<POSITIONS.length;i++) {
     var star=board[POSITIONS[i]];
-    if (honmei.indexOf(star)>=0||tsukimei.indexOf(star)>=0) {
+    // 本命殺・月命殺（本命=月命のとき kyouTsukimei も同じ数字なので結果は同じ方位）
+    if (kyouHonmei.indexOf(star)>=0||kyouTsukimei.indexOf(star)>=0) {
       var d8=POSITION_TO_DIR8[POSITIONS[i]];
       kyou8[d8]=true;
       if(OPP8[d8])kyou8[OPP8[d8]]=true;
@@ -373,6 +409,7 @@ function calcDay(date, honmei, tsukimei, maxStars, kichiStars) {
   var tento16 = getTentoDirection(date);
   var tento8 = tento16 ? to8(tento16) : null;
 
+  // 吉方位計算は引数の honmei/tsukimei（転換済み）を使う
   var maxResults=[],kichiResults=[];
   for (var i=0;i<POSITIONS.length;i++) {
     var pos=POSITIONS[i];
@@ -384,38 +421,31 @@ function calcDay(date, honmei, tsukimei, maxStars, kichiStars) {
     var isCardinal=(dir16list.length===1);
 
     if (isCardinal) {
-      // 東西南北：30°も同一
       if (kyou16[d8]) continue;
       var matchDaisango=(d8===daisango16);
       var matchTento=(d8===tento16);
       var isSpec=matchDaisango||matchTento;
       var isSuperSpec=matchDaisango&&matchTento;
-      // 東西南北でスペシャル（大三合or天道）の場合は通常カード非表示
-      // 東西南北は30°=60°なのでスペシャルと通常が同じ方位→非表示
       var tentoIsCardinal=tento16?CARDINAL4.indexOf(tento16)>=0:false;
       var hideN=isSpec&&((matchDaisango&&daisangoIsCardinal)||(matchTento&&tentoIsCardinal));
       var ent={star:star,dir8:d8,dir16:d8,isSpecial:isSpec,isSuperSpecial:isSuperSpec,hideNormal:hideN,matchDaisango:matchDaisango,matchTento:matchTento};
       if(maxStars.indexOf(star)>=0) maxResults.push(ent);
       if(kichiStars.indexOf(star)>=0) kichiResults.push(ent);
     } else {
-      // 斜め方位：30度凶の有無で表示方法を決める
       var bl0=kyou16[dir16list[0]]?true:false;
       var bl1=kyou16[dir16list[1]]?true:false;
       if (bl0&&bl1) {
         continue;
       } else if (!bl0&&!bl1) {
-        // 両方吉：天道・大三合チェック
         var matchDaisango=(daisango16===dir16list[0]||daisango16===dir16list[1]);
         var matchTento=tento16&&(tento16===dir16list[0]||tento16===dir16list[1]);
         var isSpec=matchDaisango||matchTento;
         var isSuperSpec=matchDaisango&&matchTento;
-        // スペシャル方位のdir16を決定（両方なら大三合優先）
         var specDir16=matchDaisango?daisango16:(matchTento?tento16:d8);
         var ent={star:star,dir8:d8,dir16:isSpec?specDir16:d8,isSpecial:isSpec,isSuperSpecial:isSuperSpec,hideNormal:false,matchDaisango:matchDaisango,matchTento:matchTento};
         if(maxStars.indexOf(star)>=0) maxResults.push(ent);
         if(kichiStars.indexOf(star)>=0) kichiResults.push(ent);
       } else {
-        // 片方だけ凶→残った30°のみ吉
         var okd16=bl0?dir16list[1]:dir16list[0];
         var matchDaisango=(okd16===daisango16);
         var matchTento=tento16&&(okd16===tento16);
@@ -430,7 +460,29 @@ function calcDay(date, honmei, tsukimei, maxStars, kichiStars) {
     }
   }
 
-  return {board:board,c:c,kanshi:kanshi,jishi:jishi,gokou8:gokou8,anken8:anken8,hakai16:hakai16,doyou16:doyou16,daisango16:daisango16,tento16:tento16,maxResults:maxResults,kichiResults:kichiResults,senro:null};
+  // ★同星時の凶方位ラベル用フラグを返す★
+  var isSameStar = (honmeiNum === rawTsukimei);
+
+  // ★本命殺・月命殺の実際の方位を特定★
+  var honmeiSatsu8 = null;   // 本命殺（本命星廻座の方位）
+  var honmeiSatsuOpp8 = null; // 本命的殺（反対方位）
+  var tsukimeiSatsu8 = null;  // 月命殺（月命星廻座の方位）
+  var tsukimeiSatsuOpp8 = null; // 月命的殺（反対方位）
+
+  for (var i=0;i<POSITIONS.length;i++) {
+    var star = board[POSITIONS[i]];
+    var d8 = POSITION_TO_DIR8[POSITIONS[i]];
+    if (star === honmeiNum) {
+      honmeiSatsu8 = d8;
+      honmeiSatsuOpp8 = OPP8[d8] || null;
+    }
+    if (star === rawTsukimei) {
+      tsukimeiSatsu8 = d8;
+      tsukimeiSatsuOpp8 = OPP8[d8] || null;
+    }
+  }
+
+  return {board:board,c:c,kanshi:kanshi,jishi:jishi,gokou8:gokou8,anken8:anken8,hakai16:hakai16,doyou16:doyou16,daisango16:daisango16,tento16:tento16,maxResults:maxResults,kichiResults:kichiResults,senro:null,isSameStar:isSameStar,honmeiSatsu8:honmeiSatsu8,honmeiSatsuOpp8:honmeiSatsuOpp8,tsukimeiSatsu8:tsukimeiSatsu8,tsukimeiSatsuOpp8:tsukimeiSatsuOpp8};
 }
 
 // ---- UI ----
@@ -503,22 +555,20 @@ function MultiStarPicker(props){
 
 function Badges(props){
   var r=props.r,items=[],specDirs={};
-  // スーパースペシャル（ゴールド）→スペシャル（ピンク）→通常の順
   r.maxResults.forEach(function(x){
-    if(x.isSuperSpecial&&!specDirs[x.dir16]){specDirs[x.dir16]=true;items.push({col:"#f0c030",icon:"🌟",dir:x.dir16});}
-    else if(x.isSpecial&&!specDirs[x.dir16]){specDirs[x.dir16]=true;items.push({col:"#ff6b9d",icon:"⭐",dir:x.dir16});}
+    if(x.isSuperSpecial&&!specDirs[x.dir16]){specDirs[x.dir16]=true;items.push({col:"#f0c030",icon:"🌟",dir:x.dir16,star:x.star});}
+    else if(x.isSpecial&&!specDirs[x.dir16]){specDirs[x.dir16]=true;items.push({col:"#ff6b9d",icon:"⭐",dir:x.dir16,star:x.star});}
   });
   r.kichiResults.forEach(function(x){
-    if(x.isSuperSpecial&&!specDirs[x.dir16]){specDirs[x.dir16]=true;items.push({col:"#f0c030",icon:"🌟",dir:x.dir16});}
-    else if(x.isSpecial&&!specDirs[x.dir16]){specDirs[x.dir16]=true;items.push({col:"#ff6b9d",icon:"⭐",dir:x.dir16});}
+    if(x.isSuperSpecial&&!specDirs[x.dir16]){specDirs[x.dir16]=true;items.push({col:"#f0c030",icon:"🌟",dir:x.dir16,star:x.star});}
+    else if(x.isSpecial&&!specDirs[x.dir16]){specDirs[x.dir16]=true;items.push({col:"#ff6b9d",icon:"⭐",dir:x.dir16,star:x.star});}
   });
-  // 通常カードはdir8（60°）で表示
-  r.maxResults.forEach(function(x){if(!x.hideNormal)items.push({col:"#c9a96e",icon:"◎",dir:x.dir8});});
-  r.kichiResults.forEach(function(x){if(!x.hideNormal)items.push({col:"#6db87e",icon:"○",dir:x.dir8});});
+  r.maxResults.forEach(function(x){if(!x.hideNormal&&!specDirs[x.dir16])items.push({col:"#c9a96e",icon:"◎",dir:x.dir8,star:x.star});});
+  r.kichiResults.forEach(function(x){if(!x.hideNormal&&!specDirs[x.dir16])items.push({col:"#6db87e",icon:"○",dir:x.dir8,star:x.star});});
   if(items.length===0)return null;
   return(
     <div style={{marginTop:"2px"}}>
-      {items.slice(0,4).map(function(b,i){return <div key={i} style={{fontSize:"10px",color:b.col,lineHeight:1.5,fontWeight:"bold"}}>{b.icon} {b.dir}</div>;})}
+      {items.slice(0,4).map(function(b,i){return <div key={i} style={{fontSize:"10px",color:b.col,lineHeight:1.5,fontWeight:"bold"}}>{b.icon} {b.dir}<span style={{fontSize:"8px",marginLeft:"2px",opacity:0.85}}>{b.star}</span></div>;})}
       {items.length>4&&<div style={{fontSize:"8px",color:"#b0987a"}}>他{items.length-4}件</div>}
     </div>
   );
@@ -539,14 +589,31 @@ function Detail(props){
     if(x.isSpecial&&!specDirs[x.dir16]){specDirs[x.dir16]=true;specials.push({star:x.star,dir16:x.dir16,isSuperSpecial:x.isSuperSpecial,matchDaisango:x.matchDaisango,matchTento:x.matchTento});}
   });
 
-  var kyouItems=[];
-  if(gokou8) kyouItems.push({l:"五黄殺",d:gokou8});
-  if(anken8) kyouItems.push({l:"暗剣殺",d:anken8});
-  kyouItems.push({l:"破壊殺",d:hakai16});
-  if(doyou16) kyouItems.push({l:"土用殺",d:doyou16});
+  // 凶方位を2グループに分けて管理
+  // グループ1：五黄殺・暗剣殺・破壊殺・土用殺
+  var kyouItems1=[];
+  if(gokou8) kyouItems1.push({l:"五黄殺",d:gokou8});
+  if(anken8) kyouItems1.push({l:"暗剣殺",d:anken8});
+  kyouItems1.push({l:"破壊殺",d:hakai16});
+  if(doyou16) kyouItems1.push({l:"土用殺",d:doyou16});
 
-  var visMax=maxResults.filter(function(x){return !x.hideNormal;});
-  var visKichi=kichiResults.filter(function(x){return !x.hideNormal;});
+  // グループ2：本命殺・本命的殺・月命殺・月命的殺
+  var kyouItems2=[];
+  if (r.isSameStar) {
+    if(r.honmeiSatsu8) kyouItems2.push({l:"本命殺（月命殺）",d:r.honmeiSatsu8});
+    if(r.honmeiSatsuOpp8) kyouItems2.push({l:"本命的殺（月命的殺）",d:r.honmeiSatsuOpp8});
+  } else {
+    if(r.honmeiSatsu8) kyouItems2.push({l:"本命殺",d:r.honmeiSatsu8});
+    if(r.honmeiSatsuOpp8) kyouItems2.push({l:"本命的殺",d:r.honmeiSatsuOpp8});
+    if(r.tsukimeiSatsu8&&r.tsukimeiSatsu8!==r.honmeiSatsu8) kyouItems2.push({l:"月命殺",d:r.tsukimeiSatsu8});
+    if(r.tsukimeiSatsuOpp8&&r.tsukimeiSatsuOpp8!==r.honmeiSatsuOpp8) kyouItems2.push({l:"月命的殺",d:r.tsukimeiSatsuOpp8});
+  }
+
+  // スペシャルと同じ30°方位(dir16)の最大吉方・吉方位は非表示
+  var specialDir16Set={};
+  specials.forEach(function(sp){specialDir16Set[sp.dir16]=true;});
+  var visMax=maxResults.filter(function(x){return !x.hideNormal&&!specialDir16Set[x.dir16];});
+  var visKichi=kichiResults.filter(function(x){return !x.hideNormal&&!specialDir16Set[x.dir16];});
   var hasAny=specials.length>0||visMax.length>0||visKichi.length>0;
 
   return(
@@ -590,7 +657,7 @@ function Detail(props){
           return(
             <div key={"sp"+i} style={{background:bg,border:border,borderRadius:"8px",padding:"10px 14px",marginBottom:"8px"}}>
               <div style={{fontSize:"10px",color:titleCol,marginBottom:"3px"}}>{title}</div>
-              <div style={{fontSize:"22px",color:dirCol,letterSpacing:"4px"}}>{sp.dir16}</div>
+              <div style={{fontSize:"22px",color:dirCol,letterSpacing:"4px"}}>{sp.dir16}<span style={{fontSize:"15px",marginLeft:"6px",opacity:0.8}}>{sp.star}</span></div>
               <div style={{fontSize:"9px",color:subCol,marginTop:"3px"}}>{KYUSEI[sp.star]}が廻座　✦ {reason.join("＆")}と一致</div>
             </div>
           );
@@ -600,7 +667,7 @@ function Detail(props){
           return(
             <div key={"m"+i} style={{background:"rgba(201,169,110,0.13)",border:"1px solid rgba(201,169,110,0.4)",borderRadius:"8px",padding:"10px 14px",marginBottom:"8px"}}>
               <div style={{fontSize:"10px",color:"#c9a96e",marginBottom:"3px"}}>◎ 最大吉方位</div>
-              <div style={{fontSize:"22px",color:"#7a5c3a",letterSpacing:"4px",fontWeight:"bold"}}>{x.dir8}</div>
+              <div style={{fontSize:"22px",color:"#7a5c3a",letterSpacing:"4px",fontWeight:"bold"}}>{x.dir8}<span style={{fontSize:"15px",marginLeft:"6px",opacity:0.8}}>{x.star}</span></div>
               <div style={{fontSize:"9px",color:"#9a8070",marginTop:"3px"}}>{KYUSEI[x.star]}が廻座</div>
             </div>
           );
@@ -610,7 +677,7 @@ function Detail(props){
           return(
             <div key={"k"+i} style={{background:"rgba(109,184,126,0.1)",border:"1px solid rgba(109,184,126,0.35)",borderRadius:"8px",padding:"10px 14px",marginBottom:"8px"}}>
               <div style={{fontSize:"10px",color:"#6db87e",marginBottom:"3px"}}>○ 吉方位</div>
-              <div style={{fontSize:"22px",color:"#2a6a3a",letterSpacing:"4px",fontWeight:"bold"}}>{x.dir8}</div>
+              <div style={{fontSize:"22px",color:"#2a6a3a",letterSpacing:"4px",fontWeight:"bold"}}>{x.dir8}<span style={{fontSize:"15px",marginLeft:"6px",opacity:0.8}}>{x.star}</span></div>
               <div style={{fontSize:"9px",color:"#709080",marginTop:"3px"}}>{KYUSEI[x.star]}が廻座</div>
             </div>
           );
@@ -620,15 +687,32 @@ function Detail(props){
       {r.isRyohan&&<div style={{marginBottom:"10px",background:"rgba(220,200,0,0.15)",border:"1px solid rgba(200,180,0,0.4)",borderRadius:"6px",padding:"6px 10px",fontSize:"11px",color:"#806000",fontWeight:"bold"}}>⚠ 凌犯期間</div>}
       <div style={{marginBottom:"14px"}}>
         <div style={{fontSize:"11px",color:"#b05050",letterSpacing:"3px",marginBottom:"8px"}}>◈ 凶方位</div>
-        <div style={{display:"flex",flexWrap:"wrap",gap:"5px"}}>
-          {kyouItems.map(function(item){
+        {/* グループ1：五黄殺・暗剣殺・破壊殺・土用殺 */}
+        <div style={{display:"flex",flexWrap:"wrap",gap:"5px",marginBottom:"6px"}}>
+          {kyouItems1.map(function(item,idx){
             return(
-              <div key={item.l} style={{background:"rgba(220,100,100,0.08)",border:"1px solid rgba(200,80,80,0.2)",borderRadius:"6px",padding:"5px 10px",fontSize:"11px"}}>
+              <div key={item.l+idx} style={{background:"rgba(220,100,100,0.08)",border:"1px solid rgba(200,80,80,0.2)",borderRadius:"6px",padding:"5px 10px",fontSize:"11px"}}>
                 <span style={{color:"#9a8070"}}>{item.l}：</span><span style={{color:"#c05050"}}>{item.d}</span>
               </div>
             );
           })}
         </div>
+        {/* グループ2：本命殺・本命的殺・月命殺・月命的殺 */}
+        <div style={{display:"flex",flexWrap:"wrap",gap:"5px",marginBottom:"6px"}}>
+          {kyouItems2.map(function(item,idx){
+            return(
+              <div key={item.l+idx} style={{background:"rgba(220,100,100,0.08)",border:"1px solid rgba(200,80,80,0.2)",borderRadius:"6px",padding:"5px 10px",fontSize:"11px"}}>
+                <span style={{color:"#9a8070"}}>{item.l}：</span><span style={{color:"#c05050"}}>{item.d}</span>
+              </div>
+            );
+          })}
+        </div>
+        {/* 同星のとき注記を最後に表示 */}
+        {r.isSameStar&&(
+          <div style={{fontSize:"10px",color:"#9a7060",marginTop:"4px",background:"rgba(200,150,80,0.08)",border:"1px solid rgba(180,130,60,0.2)",borderRadius:"6px",padding:"6px 10px"}}>
+            ※本命星＝月命星のため、本命殺＝月命殺・本命的殺＝月命的殺として算出
+          </div>
+        )}
       </div>
 
       <div>
@@ -648,7 +732,7 @@ export default function App(){
   var s5=useState(0);   var mi=s5[0];       var setMi=s5[1];
   var s6=useState(null);var sel=s6[0];      var setSel=s6[1];
 
-  // 最大吉方星・吉方星を自動算出
+  // 最大吉方星・吉方星を自動算出（転換あり）
   var maxK = getMaxKichiStars(honmei, tsukimei, gender);
   var kichi = getKichiStars(honmei, tsukimei, gender);
   var effTsuki = getEffectiveTsukimei(honmei, tsukimei, gender);
@@ -663,11 +747,14 @@ export default function App(){
     for(var i=0;i<fd;i++) arr.push(null);
     for(var d=1;d<=dim;d++){
       var date=new Date(year,month,d);
-      var res=calcDay(date,[honmei],[effTsuki],maxK,kichi);
+      // ★calcDay に honmei（本命星の数字）と tsukimei（月命星の生の数字）を追加で渡す★
+      // 吉方位計算用の honmei 配列と tsukimei 配列は転換済みの effTsuki を使う
+      var res=calcDay(date,[honmei],[effTsuki],maxK,kichi,honmei,tsukimei);
       res.day=d; res.date=date;
       res.senro=getSenro(honmei, res.jishi);
       res.enjitsu=enjitsu.indexOf(res.c)>=0;
       res.isSetsunyu=isSetsunyu(date);
+      res.isNichibanKirikae=isNichibanKirikae(date);
       res.holiday=getHoliday(date);
       res.kinenbi=getKinenbi(date);
       res.ichiryuman=isIchiryuman(date);
@@ -676,7 +763,6 @@ export default function App(){
       res.shingetsu=isShingetsu(date);
       res.mangetsu=getMangetsu(date);
       res.supermoon=isSuperMoon(date);
-      // 土用期間チェック＋間日チェック
       var dtCheck=new Date(date.getFullYear(),date.getMonth(),date.getDate());
       var inDoyou=false;
       var isMaday=false;
@@ -699,7 +785,6 @@ export default function App(){
       }
       res.isDoyou=inDoyou;
       res.isMaday=isMaday;
-      // 凌犯期間チェック
       var inRyohan=false;
       for(var ri=0;ri<RYOHAN.length;ri++){
         var rs=new Date(RYOHAN[ri].s.getFullYear(),RYOHAN[ri].s.getMonth(),RYOHAN[ri].s.getDate());
@@ -707,7 +792,6 @@ export default function App(){
         if(dtCheck>=rs&&dtCheck<=re){inRyohan=true;break;}
       }
       res.isRyohan=inRyohan;
-      // 節入りラベル（土用明けは立春/立夏/立秋/立冬）
       var SETSU_LABELS={"2026-5-5":"立夏","2026-8-7":"立秋","2026-11-7":"立冬","2027-2-3":"立春"};
       var setsuKey=(date.getFullYear())+"-"+(date.getMonth()+1)+"-"+date.getDate();
       res.setsuLabel=SETSU_LABELS[setsuKey]||null;
@@ -769,7 +853,7 @@ export default function App(){
             </div>
             {honmei===tsukimei && (
               <div style={{fontSize:"9px",color:"#a09070",marginTop:"4px"}}>
-                ※同星のため月命星を{effTsuki}（{KYUSEI[effTsuki]}）に変換して算出
+                ※最大吉方：月命星を{effTsuki}（{KYUSEI[effTsuki]}）に変換して算出／凶方位：転換なし（本命殺＝月命殺）
               </div>
             )}
           </div>
@@ -803,7 +887,7 @@ export default function App(){
 
           {/* 吉方星（自動算出・表示のみ） */}
           <div>
-            <div style={{fontSize:"11px",color:"#9a8070",marginBottom:"6px",letterSpacing:"1px"}}>吉方星 <span style={{color:"#b0987a"}}>（自動算出）</span></div>
+            <div style={{fontSize:"11px",color:"#9a8070",marginBottom:"6px",letterSpacing:"1px"}}>相星（最大除く） <span style={{color:"#b0987a"}}>（自動算出）</span></div>
             <div style={{display:"flex",flexWrap:"wrap",gap:"5px"}}>
               {kichi.length===0 && <div style={{fontSize:"12px",color:"#b0987a"}}>ナシ</div>}
               {kichi.map(function(n){
@@ -842,8 +926,6 @@ export default function App(){
         <div style={{display:"flex",flexWrap:"wrap",gap:"6px 14px"}}>
           {(function(){
             var icon=SENRO_ICON[SENRO_GROUP[honmei]];
-            var groupName=SENRO_GROUP[honmei]==="天"?"天数系":SENRO_GROUP[honmei]==="人"?"人数系":"地数系";
-            var jishiStr=SENRO_GROUP[honmei]==="天"?"戌・未・辰・丑":SENRO_GROUP[honmei]==="人"?"酉・午・卯・子":"亥・申・巳・寅";
             return [
               {icon:icon, lbl:"線路日"},
               {icon:"♥", lbl:"縁日", col:"#c07080"},
@@ -880,12 +962,9 @@ export default function App(){
             if(!c)return <div key={"e"+idx} style={{minHeight:"80px"}}/>;
             var isSel=sel===c.day;
             var dow=(fd+c.day-1)%7;
-            var hasSpec=c.maxResults.some(function(r){return r.isSpecial;})||c.kichiResults.some(function(r){return r.isSpecial;});
-            var hasMax=c.maxResults.filter(function(r){return !r.hideNormal;}).length>0;
-            var hasKichi=c.kichiResults.filter(function(r){return !r.hideNormal;}).length>0;
             var bg="transparent";
             return(
-              <div key={c.day} onClick={function(){setSel(isSel?null:c.day);}} style={{minHeight:c.tensha||c.ichiryuman?"96px":"80px",padding:"5px 3px",display:"flex",flexDirection:"column",background:isSel?"rgba(201,169,110,0.15)":bg,border:isSel?"2px solid rgba(160,120,70,0.5)":"1px solid rgba(180,140,90,0.15)",borderLeft:c.isSetsunyu?"4px solid #9a7a50":isSel?"2px solid rgba(160,120,70,0.5)":"1px solid rgba(180,140,90,0.15)",cursor:"pointer",position:"relative"}}>
+              <div key={c.day} onClick={function(){setSel(isSel?null:c.day);}} style={{minHeight:c.tensha||c.ichiryuman?"96px":"80px",padding:"5px 3px",display:"flex",flexDirection:"column",background:isSel?"rgba(201,169,110,0.15)":bg,border:isSel?"2px solid rgba(160,120,70,0.5)":"1px solid rgba(180,140,90,0.15)",borderLeft:c.isSetsunyu?"4px solid #9a7a50":c.isNichibanKirikae?"4px solid #c04040":isSel?"2px solid rgba(160,120,70,0.5)":"1px solid rgba(180,140,90,0.15)",cursor:"pointer",position:"relative"}}>
                 <div style={{display:"flex",alignItems:"center",gap:"3px"}}>
                   <div style={{fontSize:"13px",color:(dow===0||c.holiday)?"#b04040":dow===6?"#4060b0":"#2a1e12"}}>{c.day}</div>
                   {c.shingetsu&&<div style={{width:"14px",height:"14px",borderRadius:"50%",background:"#1a1a2e",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
@@ -900,13 +979,13 @@ export default function App(){
                 <div style={{fontSize:"8px",color:"#9a8060",marginBottom:"2px"}}>{c.kanshi}</div>
                 {c.holiday&&<div style={{fontSize:"7px",color:"#b04040",fontWeight:"bold",marginBottom:"1px",lineHeight:1.2}}>{c.holiday}</div>}
                 {c.kinenbi&&<div style={{fontSize:"7px",color:"#7a6a5a",fontWeight:"bold",marginBottom:"1px",lineHeight:1.2}}>{c.kinenbi}</div>}
-
                 {c.isSetsunyu&&<div style={{fontSize:"7px",color:"#9a7a50",fontWeight:"bold",marginBottom:"1px",letterSpacing:"0.5px"}}>{c.setsuLabel||"節入り"}</div>}
                 <Badges r={c}/>
                 <div style={{display:"flex",flexWrap:"wrap",gap:"2px",marginTop:"auto",paddingBottom:c.isDoyou?"7px":"0px"}}>
                   {c.ehomairi&&<div style={{fontSize:"6px",color:"#ffffff",fontWeight:"bold",border:"1px solid #7040b0",borderRadius:"3px",padding:"0px 2px",lineHeight:1.5,background:"#7040b0"}}>恵方</div>}
                   {c.tensha&&<div style={{fontSize:"6px",color:"#3060c0",fontWeight:"bold",border:"1px solid #3060c0",borderRadius:"3px",padding:"0px 2px",lineHeight:1.5,background:"rgba(255,255,255,0.9)"}}>天赦日</div>}
                   {c.ichiryuman&&<div style={{fontSize:"6px",color:"#c07820",fontWeight:"bold",border:"1px solid #c07820",borderRadius:"3px",padding:"0px 2px",lineHeight:1.5,background:"rgba(255,255,255,0.9)"}}>一粒万倍</div>}
+                  {c.isNichibanKirikae&&<div style={{fontSize:"6px",color:"#1a1a1a",fontWeight:"bold",border:"1px solid #666",borderRadius:"3px",padding:"0px 2px",lineHeight:1.5,background:"rgba(255,255,255,0.9)"}}>日盤切替</div>}
                 </div>
                 {c.isDoyou&&<div style={{position:"absolute",bottom:0,left:0,right:0,height:"5px",background:"rgba(180,130,70,0.35)",borderRadius:"0 0 2px 2px",display:"flex",alignItems:"center",justifyContent:"center"}}>
                   {c.isMaday&&<span style={{fontSize:"6px",color:"#6b3a1f",fontWeight:"bold",letterSpacing:"0.5px",lineHeight:1}}>間日</span>}
