@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo } from "react"; 
 
 const POSITION_TO_DIR8 = {
   top:"南",topLeft:"南東",left:"東",bottomLeft:"北東",
